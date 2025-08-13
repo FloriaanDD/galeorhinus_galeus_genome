@@ -1,0 +1,1447 @@
+---
+title: "School shark: Pangenome & variant analysis"
+author: "Floriaan Devloo-Delva"
+date: "August 2025"
+output: 
+  pdf_document: 
+    toc: yes
+    number_sections: yes
+editor_options: 
+  chunk_output_type: console
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+
+# Load packages
+
+```{r}
+# devtools::install_github("Farre-lab/syntenyPlotteR.beta", force = TRUE)
+library(syntenyPlotteR)
+library(syntenyPlotteR.BETA)
+library(tidyverse)
+library(vcfR)
+library(ape)
+library(dartRverse)
+library(GenomicRanges)
+library(IRanges)
+library(GenomeInfoDb)
+library(rtracklayer)
+library(detectRUNS)
+library(ggplot2)
+library(gridExtra)
+```
+
+
+
+# Synteny 
+
+## sGalGal3 vs sGalGal4 vs Mustelus asterias
+
+```{r}
+setwd("/datasets/work/ncmi-toa-rrbs/work/2.School_shark/pangenome/cactus/School_shark_pan_trikidae/")
+karyotype <- 'Mustelus_asterias_vs_OG706_vs_OG906_karyotype.txt'
+bed <- '/datasets/work/ncmi-toa-rrbs/work/2.School_shark/pangenome/cactus/School_shark_pan_trikidae/School_shark_pan_trikidae.OG906_vs_OG706.bed'
+```
+
+
+
+```{r}
+karyotype.file <- "syntenyPlotteR_karyotype_mustelus_OG706_OG906_file.txt"
+link.file1 <- "syntenyPlotteR_link_file_mustelus_OG706_OG906.txt"
+link.file2 <- "syntenyPlotteR_link_file_mustelus_OG706_renamed.txt"
+out.file <- "synteny_mustelus_OG706_OG906"
+
+
+df <- read.table(bed, sep = "\t", header = FALSE, stringsAsFactors = FALSE)
+colnames(df) <- c("chr1", "start1", "end1", "chr2", "V5", "strand", "start2", "end2", "v9", "v10", "v11", "v12")
+df2 <- df[, c("chr1", "start1", "end1", "chr2","start2", "end2","strand")]
+df2$sp1 <- "OG706"
+df2$sp2 <- "OG906"
+df3 <- df2[df2$chr1 %in% c(paste0("SUPER_", 1:47), "SUPER_X") & df2$chr2 %in% c(paste0("SUPER_", 1:47), "SUPER_X"),]
+
+df5 <- df3
+df5$chr2[df3$chr2 == "SUPER_7"] <- "SUPER_8"
+df5$chr2[df3$chr2 == "SUPER_8"] <- "SUPER_7"
+df5$chr2[df3$chr2 == "SUPER_14"] <- "SUPER_16"
+df5$chr2[df3$chr2 == "SUPER_16"] <- "SUPER_14"
+df5$chr2[df3$chr2 == "SUPER_17"] <- "SUPER_18"
+df5$chr2[df3$chr2 == "SUPER_18"] <- "SUPER_17"
+df5$chr2[df3$chr2 == "SUPER_22"] <- "SUPER_24"
+df5$chr2[df3$chr2 == "SUPER_24"] <- "SUPER_22"
+df5$chr2[df3$chr2 == "SUPER_23"] <- "SUPER_25"
+df5$chr2[df3$chr2 == "SUPER_25"] <- "SUPER_23"
+df5$chr2[df3$chr2 == "SUPER_26"] <- "SUPER_27"
+df5$chr2[df3$chr2 == "SUPER_27"] <- "SUPER_26"
+df5$chr2[df3$chr2 == "SUPER_30"] <- "SUPER_31"
+df5$chr2[df3$chr2 == "SUPER_31"] <- "SUPER_30"
+df5$chr2[df3$chr2 == "SUPER_33"] <- "SUPER_34"
+df5$chr2[df3$chr2 == "SUPER_34"] <- "SUPER_33"
+df5$chr2[df3$chr2 == "SUPER_40"] <- "SUPER_43"
+df5$chr2[df3$chr2 == "SUPER_43"] <- "SUPER_42"
+df5$chr2[df3$chr2 == "SUPER_42"] <- "SUPER_40"
+df5$chr1 <- gsub(pattern = "SUPER_", replacement = "chr", x = df5$chr1)
+df5$chr2 <- gsub(pattern = "SUPER_", replacement = "chr", x = df5$chr2)
+
+readr::write_tsv(df5, file = link.file1, col_names = FALSE, quote = "none")
+
+
+
+karyo <- read.table(karyotype, sep = "\t", header = FALSE, stringsAsFactors = FALSE)
+colnames(karyo) <- c("chr", "dummy", "label", "accession", "start", "end", "color")
+karyo$species <- NA
+karyo$species[grepl(pattern = "OG706", x = karyo$label)] <- "OG706"
+karyo$species[grepl(pattern = "OG906", x = karyo$label)] <- "OG906"
+karyo$species[grepl(pattern = "Mustelus_asterias", x = karyo$label)] <- "Mustelus_asterias"
+
+karyo$old_accession <- karyo$accession
+
+karyo$accession[karyo$old_accession == "OZ172890.1"] <- "chr2"
+karyo$accession[karyo$old_accession == "OZ172891.1"] <- "chr1"
+karyo$accession[karyo$old_accession == "OZ172892.1"] <- "chr12"
+karyo$accession[karyo$old_accession == "OZ172894.1"] <- "chr4"
+karyo$accession[karyo$old_accession == "OZ172895.1"] <- "chr6"
+karyo$accession[karyo$old_accession == "OZ172896.1"] <- "chr3"
+karyo$accession[karyo$old_accession == "OZ172897.1"] <- "chr11"
+karyo$accession[karyo$old_accession == "OZ172899.1"] <- "chr10"
+karyo$accession[karyo$old_accession == "OZ172903.1"] <- "chr5"
+karyo$accession[karyo$old_accession == "OZ172904.1"] <- "chr8"
+karyo$accession[karyo$old_accession == "OZ172905.1"] <- "chr7"
+karyo$accession[karyo$old_accession == "OZ172906.1"] <- "chr13"
+karyo$accession[karyo$old_accession == "OZ172907.1"] <- "chr9"
+karyo$accession[karyo$old_accession == "OZ172908.1"] <- "chr17"
+karyo$accession[karyo$old_accession == "OZ172909.1"] <- "chr14"
+karyo$accession[karyo$old_accession == "OZ172910.1"] <- "chr18"
+karyo$accession[karyo$old_accession == "OZ172911.1"] <- "chr20"
+karyo$accession[karyo$old_accession == "OZ172912.1"] <- "chr15"
+karyo$accession[karyo$old_accession == "OZ172913.1"] <- "chr21"
+karyo$accession[karyo$old_accession == "OZ172914.1"] <- "chr16"
+karyo$accession[karyo$old_accession == "OZ172915.1"] <- "chr19"
+karyo$accession[karyo$old_accession == "OZ172916.1"] <- "chr22"
+karyo$accession[karyo$old_accession == "OZ172917.1"] <- "chr23"
+karyo$accession[karyo$old_accession == "OZ172918.1"] <- "chr24"
+
+karyo$accession[karyo$old_accession == "OZ172893.1"] <- "chr25"
+karyo$accession[karyo$old_accession == "OZ172898.1"] <- "chr26"
+karyo$accession[karyo$old_accession == "OZ172900.1"] <- "chr27"
+karyo$accession[karyo$old_accession == "OZ172901.1"] <- "chr28"
+karyo$accession[karyo$old_accession == "OZ172902.1"] <- "chr29"
+karyo$accession[karyo$old_accession == "OZ172919.1"] <- "chr30"
+karyo$accession[karyo$old_accession == "OZ172920.1"] <- "chr31"
+karyo$accession[karyo$old_accession == "OZ172921.1"] <- "chr32"
+karyo$accession[karyo$old_accession == "OZ172922.1"] <- "chr33"
+karyo$accession[karyo$old_accession == "OZ172923.1"] <- "chr34"
+karyo$accession[karyo$old_accession == "OZ172924.1"] <- "chr35"
+
+karyo$accession[karyo$old_accession == "SUPER_7" & karyo$species == "OG906"] <- "SUPER_8"
+karyo$accession[karyo$old_accession == "SUPER_8" & karyo$species == "OG906"] <- "SUPER_7"
+karyo$accession[karyo$old_accession == "SUPER_14" & karyo$species == "OG906"] <- "SUPER_16"
+karyo$accession[karyo$old_accession == "SUPER_16" & karyo$species == "OG906"] <- "SUPER_14"
+karyo$accession[karyo$old_accession == "SUPER_17" & karyo$species == "OG906"] <- "SUPER_18"
+karyo$accession[karyo$old_accession == "SUPER_18" & karyo$species == "OG906"] <- "SUPER_17"
+karyo$accession[karyo$old_accession == "SUPER_22" & karyo$species == "OG906"] <- "SUPER_24"
+karyo$accession[karyo$old_accession == "SUPER_24" & karyo$species == "OG906"] <- "SUPER_22"
+karyo$accession[karyo$old_accession == "SUPER_23" & karyo$species == "OG906"] <- "SUPER_25"
+karyo$accession[karyo$old_accession == "SUPER_25" & karyo$species == "OG906"] <- "SUPER_23"
+karyo$accession[karyo$old_accession == "SUPER_26" & karyo$species == "OG906"] <- "SUPER_27"
+karyo$accession[karyo$old_accession == "SUPER_27" & karyo$species == "OG906"] <- "SUPER_26"
+karyo$accession[karyo$old_accession == "SUPER_30" & karyo$species == "OG906"] <- "SUPER_31"
+karyo$accession[karyo$old_accession == "SUPER_31" & karyo$species == "OG906"] <- "SUPER_30"
+karyo$accession[karyo$old_accession == "SUPER_33" & karyo$species == "OG906"] <- "SUPER_34"
+karyo$accession[karyo$old_accession == "SUPER_34" & karyo$species == "OG906"] <- "SUPER_33"
+karyo$accession[karyo$old_accession == "SUPER_40" & karyo$species == "OG906"] <- "SUPER_43"
+karyo$accession[karyo$old_accession == "SUPER_43" & karyo$species == "OG906"] <- "SUPER_42"
+karyo$accession[karyo$old_accession == "SUPER_42" & karyo$species == "OG906"] <- "SUPER_40"
+
+karyo$accession <- gsub(pattern = "SUPER_", replacement = "chr", x = karyo$accession)
+
+chr.select <- unique(c(paste0("chr", 1:47), "chrX"))
+karyo.sub <- karyo[karyo$accession %in% chr.select,]
+
+chrom_lengths <- karyo.sub[, c("accession", "end", "species")]
+colnames(chrom_lengths) <- c("chr", "end", "species")
+chrom_lengths$chr <- factor(chrom_lengths$chr, levels = c(paste0("chr", 1:47), "chrX"))
+chrom_lengths$species <- factor(chrom_lengths$species, levels = c("Mustelus_asterias", "OG706","OG906"))
+
+chrom_lengths <- chrom_lengths[order(chrom_lengths$chr, chrom_lengths$species),]
+
+readr::write_tsv(chrom_lengths, file = karyotype.file, 
+                 col_names = FALSE, quote = "none")
+chr_colors <- rainbow(length(unique(chrom_lengths$chr)))
+names(chr_colors) <- unique(chrom_lengths$chr)
+
+
+syntenyPlotteR::draw.linear(output = out.file, 
+                            sizefile = karyotype.file, 
+                            link.file2,link.file1,
+                            fileformat = "png", 
+                            directory = getwd(),
+                            colours = chr_colors,
+                            w = 15, h = 5, opacity = 0.5)
+
+out.file2 <- "synteny_mustelus_OG706_OG906_FINAL2"
+syntenyPlotteR.BETA::draw.linear.2.0(output = out.file2, 
+                                     sizefile = karyotype.file, 
+                                     link.file2,link.file1,
+                                     fileformat = "png", 
+                                     directory = getwd(),
+                                     colours = chr_colors, 
+                                     w = 15, h = 5, opacity = 0.5, 
+                                     insert.size = 6000000, 
+                                     chr.label.size = 0, 
+                                     sps.label.size = 0, 
+                                     angle.chr.label = 0, 
+                                     chr.label.height = 0)
+```
+
+
+```{r}
+df4 <- df3[df3$end1 - df3$start1 < 30000,]
+
+readr::write_tsv(df4, file = "MicrosyntenyPlotteR_link_file.txt", col_names = FALSE, quote = "none")
+
+
+syntenyPlotteR.BETA::draw.microsynteny(output = "Microsynteny_OG706_OG906", 
+                                       sizefile = "syntenyPlotteR_karyotype_file.txt", 
+                                       "MicrosyntenyPlotteR_link_file.txt", 
+                                       fileformat = "png", 
+                                       colours = chr_colors,
+                                       w = 15, h = 5, opacity = .5)
+
+
+df6 <- df5[df5$end1 - df5$start1 < 30000,]
+
+readr::write_tsv(df6, file = "MicrosyntenyPlotteR_link_file_renamed.txt", col_names = FALSE, quote = "none")
+
+
+syntenyPlotteR.BETA::draw.microsynteny(output = "Microsynteny_OG706_OG906_REORDERED", 
+                                       sizefile = "syntenyPlotteR_karyotype_file_renamed.txt", 
+                                       "MicrosyntenyPlotteR_link_file_renamed.txt", 
+                                       fileformat = "png", 
+                                       colours = chr_colors,
+                                       w = 15, h = 5, opacity = .5)
+
+syntenyPlotteR::draw.linear(output = "Microsynteny_OG706_OG906_REORDERED2", 
+                            sizefile = "syntenyPlotteR_karyotype_file_renamed.txt", 
+                            "syntenyPlotteR_link_file_renamed.txt", 
+                            fileformat = "png", 
+                            directory = getwd(),
+                            colours = chr_colors,
+                            w = 15, h = 5, opacity = .5)
+
+```
+
+
+
+# SNPs sGalGal3 & sGalGal4 combined
+
+```{r}
+vcf.file.snp <- "/datasets/work/ncmi-toa-rrbs/work/2.School_shark/PACBIO/SS_all_deepvariants.vcf.gz"
+comb.vcf.vcfr <- vcfR::read.vcfR(file = vcf.file.snp,  limit = 1e+08)
+biallelic <- vcfR::is.biallelic(comb.vcf.vcfr)
+comb.vcf.vcfr.bi <- comb.vcf.vcfr[biallelic,]
+
+keep <- nchar(comb.vcf.vcfr.bi@fix[,4]) == 1 & nchar(comb.vcf.vcfr.bi@fix[,4]) == 1 ##only SNPs, not indels
+comb.vcf.vcfr.bi <- comb.vcf.vcfr.bi[keep,]
+# ***** Object of Class vcfR *****
+# 2 samples
+# 48 CHROMs
+# 22,170,291 variants
+# Object size: 5285.2 Mb
+# 0 percent missing data
+
+# save(comb.vcf.vcfr.bi, file = "sGalGal_SNP_from_deepvariant.Rdata")
+
+
+# dna_file <- "/datasets/work/ncmi-to a-rrbs/work/2.School_shark/OG706_curated/OG706_curated.fa"
+# dna <- ape::read.dna(dna_file, format = "fasta")
+# chrom <- vcfR::create.chromR(name = 'Supercontig', vcf = comb.vcf.vcfr, seq = dna)
+# plot(chrom)
+# chrom <- vcfR::masker(chrom, min_QUAL = 1, min_DP = 66, max_DP = 700, min_MQ = 59.9,  max_MQ = 60.1)
+# plot(chrom)
+# chrom <- proc.chromR(chrom, verbose=TRUE)
+# chromoqc(chrom, dp.alpha=20)
+
+library(dartRverse)
+
+gl.SS <- vcfR::vcfR2genlight(comb.vcf.vcfr.bi)
+gl.SS@pop <- factor(c("TAS","TAS"))
+# save(comb.vcf.vcfr.bi,gl.SS, file = "sGalGal_SNP_from_deepvariant.Rdata")
+load("sGalGal_SNP_from_deepvariant.Rdata")
+
+res <- dartR.base::utils.basic.stats(gl.SS)
+het.dat <- data.frame(chr = gl.SS@chromosome, start = gl.SS@position, Ho = res$perloc$Ho)
+# save(het.dat, file = "sGalGal_SNP_HET_from_deepvariant.Rdata")
+# load("sGalGal_SNP_HET_from_deepvariant.Rdata")
+
+library(tidyverse)
+CHR <- c(paste0("SUPER_",1:47), "SUPER_X")
+het.dat <- het.dat[het.dat$chr %in% CHR,]
+het.dat$chr <- factor(het.dat$chr, levels = CHR)
+het.dat <- het.dat[order(het.dat$chr, het.dat$start),]
+
+het.dat2 <- het.dat %>%
+  dplyr::arrange(desc(start)) %>%
+  dplyr::group_by(chr) %>% 
+  dplyr::mutate(
+                discr_het_prob10000 = zoo::rollmean(Ho, k = 10000, fill = NA),
+                ) %>%
+  dplyr::ungroup()
+
+save(het.dat,het.dat2, file = "sGalGal_SNP_HET_from_deepvariant.Rdata")
+```
+
+## Heterozygosity
+
+```{r}
+load("sGalGal_SNP_HET_from_deepvariant.Rdata")
+
+karyotype <- '/datasets/work/ncmi-toa-rrbs/work/2.School_shark/pangenome/cactus/School_shark_pan/OG706_curated.karyotype.txt'
+karyo <- read.table(karyotype, sep = "\t", header = FALSE, stringsAsFactors = FALSE)
+colnames(karyo) <- c("chr", "dummy", "label", "accession", "start", "end", "color")
+chr.select <- c(paste0("SUPER_", 1:47), "SUPER_X")
+karyo.sub <- karyo[karyo$accession %in% chr.select,]
+chrom_lengths <- karyo.sub[, c("accession", "start","end")]
+colnames(chrom_lengths) <- c("chr", "start", "end")
+chrom_lengths$chr <- factor(chrom_lengths$chr, levels = chr.select)
+chrom_lengths <- chrom_lengths[order(chrom_lengths$chr),]
+
+chr_colors <- grDevices::rainbow(length(unique(chrom_lengths$chr)))
+names(chr_colors) <- as.character(unique(chrom_lengths$chr))
+
+chrom.plot <- ggplot2::ggplot(chrom_lengths, 
+                              ggplot2::aes(xmin = start, xmax = end, 
+                                           ymin = 0, ymax = 1)) +
+        ggplot2::geom_rect(ggplot2::aes(fill = chr), color = "black") +
+        ggplot2::labs(x = "Chromosome Position (bp)", y = "Chromosome") +
+        ggplot2::facet_grid(~chr, scales = "free_x", space = "free_x", switch = "both") +
+        ggplot2::scale_fill_manual(values = chr_colors) +
+        ggplot2::scale_x_continuous(expand = c(0, 0)) + 
+        ggplot2::scale_y_continuous(expand = c(0, 0)) + 
+        ggplot2::theme_void() + 
+    ggplot2::theme(
+    legend.position = "none",
+    panel.spacing = grid::unit(0.75, "mm"),
+    axis.text = ggplot2::element_blank(),
+    axis.title.x = ggplot2::element_blank(),
+    axis.title.y = ggplot2::element_blank(),
+    strip.text =  ggplot2::element_blank(),
+    plot.margin = ggplot2::margin(t = -0.5,r = 0,b = 0,l = 0, unit = "pt")
+    )
+
+
+
+het.plot <- ggplot2::ggplot(data = het.dat) +
+  ggplot2::geom_line(ggplot2::aes(
+    x = start,
+    # y = Ho,
+    y = discr_het_prob10000
+  ),linewidth = 0.05) +
+  ggplot2::ylim(c(0, 100)) +
+  ggplot2::ggtitle("") +
+  ggplot2::facet_grid(~chr, scales = "free_x", space = "free_x", switch = "both") +
+  ggplot2::scale_x_continuous(expand = c(0, 0)) +
+  ggplot2::theme_bw() +
+  ggplot2::theme(
+    line = ggplot2::element_line(linewidth = 0.05),
+    rect = ggplot2::element_rect(linewidth = 0.05),
+    panel.spacing = grid::unit(0.75, "mm"),
+    axis.text = ggplot2::element_blank(),
+    axis.title.x = ggplot2::element_blank(),
+    axis.title.y = ggplot2::element_blank(),
+    strip.text =  ggplot2::element_blank(),
+    strip.background = ggplot2::element_blank(),
+    plot.margin = ggplot2::margin(t = 0, r = 0, b = -0.5, l = 0, unit = "pt") 
+    )
+# ggplot2::ggsave(  plot = meth.plot,
+#   filename = "/datasets/work/ncmi-toa-rrbs/work/2.School_shark/PACBIO/0.Methylation_rolling_means_100000_FINAL3.png",
+#   device = "png",  width = 15,  height = 1.3, dpi = 1200
+# )
+# ggplot2::ggsave(  plot = meth.plot,
+#   filename = "/datasets/work/ncmi-toa-rrbs/work/2.School_shark/PACBIO/0.Methylation_rolling_means_100000_FINAL5.png",
+#   device = "png",  width = 15,  height = 1.3, dpi = 300
+# )
+combo.plot <- gridExtra::grid.arrange(het.plot, chrom.plot, ncol = 1, heights = c(7,1) )
+ggplot2::ggsave(  plot = combo.plot,
+  filename = "/datasets/work/ncmi-toa-rrbs/work/2.School_shark/PACBIO/3.heterozygosity_plot.png",
+  device = "png",  width = 15,  height = 1.3, dpi = 300
+)
+```
+
+
+## SNP density
+
+```{r}
+load("sGalGal_SNP_HET_from_deepvariant.Rdata")
+
+library(GenomicRanges)
+snp_data <- data.frame(
+  chr = het.dat$chr,
+  start = het.dat$start,
+  end = het.dat$start + 1
+)
+
+genome.info <- GenomeInfoDb::Seqinfo(seqnames = as.character(chrom_lengths$chr),
+                                     seqlengths = chrom_lengths$end, 
+                                     isCircular = rep(FALSE, length(chrom_lengths$chr)),
+                                     genome = "sGalGal3")
+
+SNP.gr <- GenomicRanges::makeGRangesFromDataFrame(snp_data)
+
+
+snp.distr <- GenomicRanges::tileGenome(genome.info, tilewidth = 10000, cut.last.tile.in.chrom=T)
+snp.distr$nSNPs = GenomicRanges::countOverlaps(snp.distr, SNP.gr)
+
+snp.distr.df <- as.data.frame(snp.distr)
+
+# save(snp_data,snp.distr.df, file = "sGalGal_SNP_dens_from_deepvariant.Rdata")
+load("sGalGal_SNP_dens_from_deepvariant.Rdata")
+
+mean(snp.distr.df$nSNPs)
+hist(snp.distr.df$nSNPs, breaks = 200)
+snp.distr.df2 <- snp.distr.df[snp.distr.df$nSNPs < 5,]
+
+snp.plot <- ggplot2::ggplot(data = snp.distr.df) +
+  ggplot2::geom_line(ggplot2::aes(
+    x = start,
+    y = nSNPs
+  ),linewidth = 0.05) +
+  # ggplot2::ylim(c(0, 100)) +
+  ggplot2::ggtitle("") +
+  ggplot2::facet_grid(~seqnames, scales = "free_x", space = "free_x", switch = "both") +
+  ggplot2::scale_x_continuous(expand = c(0, 0)) +
+  ggplot2::theme_bw() +
+  ggplot2::theme(
+    line = ggplot2::element_line(linewidth = 0.05),
+    rect = ggplot2::element_rect(linewidth = 0.05),
+    panel.spacing = grid::unit(0.75, "mm"),
+    axis.text = ggplot2::element_blank(),
+    axis.title.x = ggplot2::element_blank(),
+    axis.title.y = ggplot2::element_blank(),
+    # axis.ticks.y = ggplot2::element_blank(),
+    strip.text =  ggplot2::element_blank(),
+    strip.background = ggplot2::element_blank(),
+    plot.margin = ggplot2::margin(t = 0, r = 0, b = -0.5, l = 0, unit = "pt") 
+    )
+combo.plot <- gridExtra::grid.arrange(snp.plot, chrom.plot, ncol = 1, heights = c(7,1) )
+ggplot2::ggsave(  plot = combo.plot,
+  filename = "/datasets/work/ncmi-toa-rrbs/work/2.School_shark/PACBIO/3.snp_distr_plot.png",
+  device = "png",  width = 15,  height = 1.3, dpi = 300
+)
+```
+
+## Centromere - low SNP density
+
+```{r}
+mean(snp.distr.df$nSNPs)
+hist(snp.distr.df$nSNPs, breaks = 200)
+snp.distr.df2 <- snp.distr.df[snp.distr.df$nSNPs < 10,]
+
+snp.plot <- ggplot2::ggplot(data = snp.distr.df2) +
+  ggplot2::geom_point(ggplot2::aes(
+    x = start,
+    y = seqnames)) +
+  ggplot2::ggtitle("") +
+  ggplot2::theme_bw() +
+  ggplot2::theme(
+    rect = ggplot2::element_rect(linewidth = 0.05),
+    panel.spacing = grid::unit(0.75, "mm"),
+    )
+ggplot2::ggsave(  plot = snp.plot,
+  filename = "/datasets/work/ncmi-toa-rrbs/work/2.School_shark/PACBIO/3.snp_distr_plot_CENTROMERE.png",
+  device = "png",  width = 15,  height = 15, dpi = 300
+)
+
+
+snp.dens.plot <- ggplot2::ggplot(data = snp.distr.df2) +
+  ggplot2::geom_density(ggplot2::aes(
+    x = start,y = after_stat(density * n)
+    ), linewidth = 0.1) +
+  ggplot2::ggtitle("") +
+  ggplot2::facet_grid(~seqnames, scales = "free_x", space = "free_x", switch = "both") +
+  ggplot2::scale_x_continuous(expand = c(0, 0)) +
+  ggplot2::theme_bw() +
+  ggplot2::theme(
+    line = ggplot2::element_line(linewidth = 0.05),
+    rect = ggplot2::element_rect(linewidth = 0.05),
+    panel.spacing = grid::unit(0.75, "mm"),
+    axis.text = ggplot2::element_blank(),
+    axis.title.x = ggplot2::element_blank(),
+    axis.title.y = ggplot2::element_blank(),
+    axis.ticks.y = ggplot2::element_blank(),
+    strip.text =  ggplot2::element_blank(),
+    strip.background = ggplot2::element_blank(),
+    legend.position = "none",
+    plot.margin = ggplot2::margin(t = 0, r = 0, b = -0.5, l = 0, unit = "pt")
+    )
+combo.plot <- gridExtra::grid.arrange(snp.dens.plot, chrom.plot, ncol = 1, heights = c(7,1) )
+ggplot2::ggsave(  plot = combo.plot,
+  filename = "/datasets/work/ncmi-toa-rrbs/work/2.School_shark/PACBIO/3.snp_distr_plot_CENTROMERE3.png",
+  device = "png",  width = 15,  height = 1.3, dpi = 300
+)
+```
+
+## Low methylated - high SNP density
+
+```{r}
+mean(snp.distr.df$nSNPs)
+hist(snp.distr.df$nSNPs, breaks = 200)
+snp.distr.df3 <- snp.distr.df[snp.distr.df$nSNPs > 130,]
+
+snp.plot <- ggplot2::ggplot(data = snp.distr.df3) +
+  ggplot2::geom_point(ggplot2::aes(
+    x = start,
+    y = seqnames)) +
+  ggplot2::ggtitle("") +
+  ggplot2::theme_bw() +
+  ggplot2::theme(
+    rect = ggplot2::element_rect(linewidth = 0.05),
+    panel.spacing = grid::unit(0.75, "mm")
+    )
+ggplot2::ggsave(  plot = snp.plot,
+  filename = "/datasets/work/ncmi-toa-rrbs/work/2.School_shark/PACBIO/3.snp_distr_plot_METHYLATION.png",
+  device = "png",  width = 15,  height = 15, dpi = 300
+)
+
+
+snp.dens.plot <- ggplot2::ggplot(data = snp.distr.df3) +
+  ggplot2::geom_density(ggplot2::aes(
+    x = start, 
+    y = after_stat(density * n)
+    ), linewidth = 0.1) +
+  ggplot2::ggtitle("") +
+  ggplot2::facet_grid(~seqnames, scales = "free_x", space = "free_x", switch = "both") +
+  ggplot2::scale_x_continuous(expand = c(0, 0)) +
+  ggplot2::theme_bw() +
+  ggplot2::theme(
+    line = ggplot2::element_line(linewidth = 0.05),
+    rect = ggplot2::element_rect(linewidth = 0.05),
+    panel.spacing = grid::unit(0.75, "mm"),
+    axis.text = ggplot2::element_blank(),
+    axis.title.x = ggplot2::element_blank(),
+    axis.title.y = ggplot2::element_blank(),
+    axis.ticks.y = ggplot2::element_blank(),
+    strip.text =  ggplot2::element_blank(),
+    strip.background = ggplot2::element_blank(),
+    legend.position = "none",
+    plot.margin = ggplot2::margin(t = 0, r = 0, b = -0.5, l = 0, unit = "pt")
+    )
+combo.plot <- gridExtra::grid.arrange(snp.dens.plot, chrom.plot, ncol = 1, heights = c(7,1) )
+ggplot2::ggsave(  plot = combo.plot,
+  filename = "/datasets/work/ncmi-toa-rrbs/work/2.School_shark/PACBIO/3.snp_distr_plot_METHYLATION3.png",
+  device = "png",  width = 15,  height = 1.3, dpi = 300
+)
+```
+
+
+## Runs of Homozygosity
+
+```{r}
+load("sGalGal_SNP_from_deepvariant.Rdata")
+
+gl.SS <- vcfR::vcfR2genlight(comb.vcf.vcfr.bi)
+gl.SS <- gl.SS[grepl(pattern = "SUPER", x = gl.ROH@chromosome),]
+##PLINK
+CHR_names <- gl.SS@chromosome #detectRUNS only takes numeric chromosomes
+CHR_names <- stringi::stri_replace_all(str = CHR_names, regex = "SUPER_", replacement = "")
+CHR_names[CHR_names == "X"] <- 48
+### MAP FILE
+rep0map <- rep(0, times = adegenet::nLoc(gl.SS))
+mapdf <- data.frame(CHR_names, #Chromosome code
+                    paste0(CHR_names,"__", gl.SS$loc.names, "__", 
+                           gl.SS@position), #Variant identifier
+                    rep0map, #Position in morgans or centimorgans
+                    gl.SS@position #Base-pair coordinate
+)
+write.table(mapdf, file = "School_shark_ROH.map", 
+            quote = FALSE, sep = " ", 
+            row.names = FALSE, col.names = FALSE)
+
+### PED FILE
+rep0ped <- rep(0, times = adegenet::nInd(gl.SS))
+rep9ped <- rep(as.numeric(-9), times = adegenet::nInd(gl.SS))
+pop <- c("TAS", "TAS")
+ind <- gsub(" ", "_", gl.SS$ind.names)
+peddf <- data.frame(pop, ind, rep0ped, rep0ped, rep0ped, rep9ped)
+glmat <- as.matrix(gl.SS)
+glmat[ is.na( glmat)] <- 3 # for now
+glmat <- glmat + 1
+glmat[glmat==1] <- '2 2'
+glmat[glmat==2] <- '1 2'
+glmat[glmat==3] <- '1 1'
+glmat[glmat==4] <- '0 0'
+peddf <- cbind(peddf, glmat)
+write.table(peddf, file = "School_shark_ROH.ped", quote = FALSE, sep = " ",
+            row.names = FALSE, col.names = FALSE)
+
+
+genotypeFilePath <- "School_shark_ROH.ped"
+mapFilePath <- "School_shark_ROH.map"
+
+
+slidingRuns <- detectRUNS::slidingRUNS.run(
+  genotypeFile = genotypeFilePath, 
+  mapFile = mapFilePath, 
+  windowSize = 15, 
+  threshold = 0.05,
+  minSNP = 3, 
+  ROHet = FALSE, 
+  maxOppWindow = 1, 
+  maxMissWindow = 1,
+  maxGap = 10^5, 
+  minLengthBps = 20000, 
+  minDensity = 1/10^3, # SNP/kbps
+  maxOppRun = NULL,
+  maxMissRun = NULL
+) 
+
+
+
+consecutiveRuns <- detectRUNS::consecutiveRUNS.run(
+  genotypeFile = genotypeFilePath,
+  mapFile = mapFilePath,
+  minSNP = 3,
+  ROHet = FALSE,
+  maxGap = 10^5,
+  minLengthBps = 20000,
+  maxOppRun = 1,
+  maxMissRun = 1
+)
+
+# slidingRuns$chrom <- as.integer(slidingRuns$chrom)
+# consecutiveRuns$chrom <- as.integer(consecutiveRuns$chrom)
+
+# genotypeFilePath <- "School_shark_ROH.ped"
+# mapFilePath <- "School_shark_ROH.map"
+# summaryList <- detectRUNS::summaryRuns(
+#   runs = slidingRuns, mapFile = mapFilePath, genotypeFile = genotypeFilePath, 
+#   Class = 6, snpInRuns = TRUE)
+
+save(slidingRuns, consecutiveRuns, summaryList, file = "School_shark_RunOfHomozygosity.Rdata")
+
+
+
+setwd("/datasets/work/ncmi-toa-rrbs/work/2.School_shark/PACBIO/")
+
+genotypeFilePath <- "School_shark_ROH.ped"
+mapFilePath <- "School_shark_ROH.map"
+print(load("/datasets/work/ncmi-toa-rrbs/work/2.School_shark/PACBIO/School_shark_RunOfHomozygosity.Rdata"))
+
+# summaryList <- detectRUNS::summaryRuns(
+#   runs = slidingRuns, mapFile = mapFilePath, genotypeFile = genotypeFilePath, 
+#   Class = 6, snpInRuns = TRUE)
+
+summaryList$summary_ROH_count #number of runs per class-size (Mbps)
+#        AA    AB   BA   BB    C     D
+# 0-6 15124 15651 5581 8158 6037 11651
+summaryList$summary_ROH_mean_chr #average number of ROH per chromosome and per POP
+head(summaryList$SNPinRun)
+
+# slidingRuns_plot <- slidingRuns[slidingRuns$chrom %in% c(1:48),]
+detectRUNS::plot_Runs(runs = slidingRuns,savePlots = TRUE, 
+                      separatePlots = FALSE, 
+                      outputName = "0.School_shark_ROH_Chrom1_48")
+
+# detectRUNS::plot_StackedRuns(runs = slidingRuns_plot)
+for (i in 1:48) {
+  detectRUNS::plot_SnpsInRuns( #proportion of times each SNP falls inside a run
+    runs = slidingRuns[slidingRuns$chrom == i,], 
+    genotypeFile = genotypeFilePath, mapFile = mapFilePath, 
+    outputName = paste0("/datasets/work/ncmi-toa-rrbs/work/2.School_shark/PACBIO/SnpsInRuns_CHR",i))
+}
+
+
+detectRUNS::plot_manhattanRuns(
+  runs = slidingRuns[slidingRuns$group == "TAS",], 
+  genotypeFile = genotypeFilePath, mapFile = mapFilePath, 
+  outputName = paste0("manhattanRuns"))
+```
+
+
+#### FINAL
+```{r}
+print(load("/datasets/work/ncmi-toa-rrbs/work/2.School_shark/PACBIO/School_shark_RunOfHomozygosity.Rdata"))
+
+str(summaryList)
+
+data <- summaryList$SNPinRun
+
+data$CHR <- paste0("SUPER_", data$CHR )
+data$CHR[data$CHR == "SUPER_48"] <- "SUPER_X"
+
+data2 <- data.frame(POSITION = data$POSITION,
+                    CHR = data$CHR,
+                    PERCENTAGE = data$PERCENTAGE)
+
+data2b <- data2 %>%
+  dplyr::arrange(desc(POSITION)) %>%
+  dplyr::group_by(CHR) %>% 
+  dplyr::mutate(
+                PERCENTAGE10000 = zoo::rollmean(PERCENTAGE, k = 10000, fill = NA)
+                ) %>%
+  dplyr::ungroup()
+data2b$CHR <- factor(data2b$CHR, levels = c(paste0("SUPER_",1:47), "SUPER_X"))
+data2b <- data2b[order(data2b$CHR, data2b$POSITION),]
+
+ROH.plot <- ggplot2::ggplot(
+  data = data2b
+  ) +
+  ggplot2::geom_line(ggplot2::aes(
+    x = POSITION ,
+    y = PERCENTAGE10000
+  ),linewidth = 0.05) +
+  ggplot2::ylim(c(0, 30)) +
+  ggplot2::ggtitle("") +
+  ggplot2::facet_grid(~CHR, scales = "free_x", space = "free_x", switch = "both") +
+  ggplot2::scale_x_continuous(expand = c(0, 0)) +
+  ggplot2::theme_bw() +
+  ggplot2::theme(
+    line = ggplot2::element_line(linewidth = 0.05),
+    rect = ggplot2::element_rect(linewidth = 0.05),
+    panel.spacing = grid::unit(0.75, "mm"),
+    axis.text = ggplot2::element_blank(),
+    axis.title.x = ggplot2::element_blank(),
+    axis.title.y = ggplot2::element_blank(),
+    strip.text =  ggplot2::element_blank(),
+    strip.background = ggplot2::element_blank(),
+    plot.margin = ggplot2::margin(t = 0, r = 0, b = -0.5, l = 0, unit = "pt") 
+    )
+
+ggplot2::ggsave(  plot = ROH.plot,
+  filename = "/datasets/work/ncmi-toa-rrbs/work/2.School_shark/PACBIO/2.ROH_SNP_plot_window_10000_2.png",
+  device = "png",  width = 15,  height = 1.3, dpi = 300
+)
+
+
+
+combo.plot2 <- gridExtra::grid.arrange(ROH.plot, chrom.plot, ncol = 1, heights = c(7,1) )
+ggplot2::ggsave(  plot = combo.plot2,
+  filename = "/datasets/work/ncmi-toa-rrbs/work/2.School_shark/PACBIO/2.ROH_SNP_plot_window_10000_COMBO.png",
+  device = "png",  width = 15,  height = 1.3, dpi = 300
+)
+```
+
+
+
+# Structural variants sGalGal3 & sGalGal4 combined
+
+
+```{r}
+load("sGalGal_SV_from_pbSV.Rdata")
+vcf.file <- "/datasets/work/ncmi-toa-rrbs/work/2.School_shark/PACBIO/SS_COMBINED_align_SV_edit2.vcf"
+vcf.vcfr <- vcfR::read.vcfR(file = vcf.file,  limit = 1e+08)
+### WAS issue with "\0" and size limit of vcfr
+##notepad++: replace "\0\t" to "\t" and "\0" to "" 
+# indels <- vcfR::extract.indels(vcf.vcfr, return.indels = TRUE)
+
+df <- as.data.frame(vcf.vcfr@fix)
+df <- df[df$FILTER == "PASS",]
+
+info <- df$INFO
+info <- info[!grepl(pattern = "IMPRECISE|BND|NotFullySpanned", x = info)]
+info.split <- stringi::stri_split_fixed(str = info, pattern = ";", simplify = TRUE)
+len <- stringi::stri_split_fixed(str = info.split[,3], pattern = "=", simplify = TRUE)[,2]
+len <- as.numeric(len)
+type <- stringi::stri_split_fixed(str = info.split[,1], pattern = "=", simplify = TRUE)[,2]
+unique(type)
+# info.split[type == "",]
+SV.df <- data.frame(type, len = abs(len))
+SV.df <- SV.df[SV.df$type != "",]
+SV.df$type <- factor(SV.df$type, levels = c("DEL", "INS", "DUP", "INV"))
+
+length(SV.df$type[SV.df$type == "DEL"]) #585636
+length(SV.df$type[SV.df$type == "INS"]) #389571
+length(SV.df$type[SV.df$type == "DUP"]) #124169
+length(SV.df$type[SV.df$type == "INV"]) #1676
+
+# save(SV.df, file = "sGalGal_SV_from_pbSV.Rdata")
+
+
+options(scipen = 999)
+dens.plot <- ggplot2::ggplot(SV.df, ggplot2::aes(x = len)) +
+  ggplot2::stat_density(ggplot2::aes(y = ggplot2::after_stat(count)), color = "black", fill = "grey", alpha = 0.3) +
+  ggplot2::scale_x_continuous(breaks = c(0,5,15,20,50,100,500,1000,5000,10000,100000), trans = "log10", expand = c(0,0.1)) +
+  ggplot2::facet_wrap(~type, nrow = 4, scales = "free_y") +
+  ggplot2::xlab("SV size (bp)") +
+  ggplot2::ylab("Number of SVs") +
+  ggplot2::theme_bw()
+print(dens.plot)
+ggplot2::ggsave(plot = dens.plot, 
+                filename = "/datasets/work/ncmi-toa-rrbs/work/2.School_shark/PACBIO/SV_pbsv_filtered2.png",
+                device = "png", width = 20, height = 15, units = "cm", limitsize = FALSE)
+```
+
+
+## FINAL
+
+```{r}
+vcf.file <- "/datasets/work/ncmi-toa-rrbs/work/2.School_shark/PACBIO/SS_COMBINED_align_SV_edit2.vcf"
+vcf.vcfr <- vcfR::read.vcfR(file = vcf.file,  limit = 1e+08)
+
+df <- as.data.frame(vcf.vcfr@fix)
+df$POS <- as.integer(df$POS)
+df <- df[df$FILTER == "PASS",]
+df <- df[!grepl(pattern = "IMPRECISE|BND|NotFullySpanned", x = df$INFO),]
+
+
+info <- df$INFO
+info.split <- stringi::stri_split_fixed(str = info, pattern = ";", simplify = TRUE)
+len <- stringi::stri_split_fixed(str = info.split[,3], pattern = "=", simplify = TRUE)[,2]
+len <- as.numeric(len)
+type <- stringi::stri_split_fixed(str = info.split[,1], pattern = "=", simplify = TRUE)[,2]
+unique(type)
+SV.df <- data.frame(type, len = abs(len))
+df <- df[SV.df$type != "",]
+SV.df <- SV.df[SV.df$type != "",]
+SV.df$type <- factor(SV.df$type, levels = c("DEL", "INS", "DUP", "INV"))
+
+summary(SV.df)
+df2 <- df[SV.df$len > 3000,]
+SV.df2 <- SV.df[SV.df$len > 3000,]
+
+library(GenomicRanges)
+sv_data <- data.frame(
+  chr = df2$CHROM,
+  start = df2$POS,
+  end = df2$POS + SV.df2$len,
+  variant_type = SV.df2$type
+)
+sv_data <- sv_data[sv_data$chr %in% c(paste0("SUPER_",1:47), "SUPER_X"),]
+sv_data$chr <- factor(sv_data$chr, levels = c(paste0("SUPER_",1:47), "SUPER_X"))
+sv_data <- sv_data[order(sv_data$chr),]
+
+
+# save(SV.df,SV.df2, sv_data, file = "sGalGal_SV_from_pbSV.Rdata")
+load("sGalGal_SV_from_pbSV.Rdata")
+
+sv_colors <- rainbow(4)
+SV.tile.plot <- ggplot2::ggplot(data = sv_data2,
+                                ggplot2::aes(
+                                  x = (start + end) / 2,
+                                  y = variant_type,
+                                  fill = variant_type,
+                                  width = end - start
+                                )) +
+  ggplot2::geom_tile() +
+  ggplot2::facet_grid( ~ chr,
+                       scales = "free_x",
+                       space = "free_x",
+                       switch = "both") +
+  ggplot2::scale_fill_manual(values = sv_colors) +
+  ggplot2::scale_x_continuous(expand = c(0, 0)) +
+  ggplot2::theme_bw() +
+  ggplot2::theme(
+    line = ggplot2::element_line(linewidth = 0.05),
+    rect = ggplot2::element_rect(linewidth = 0.05),
+    panel.spacing = grid::unit(0.75, "mm"),
+    legend.position = "none",
+    axis.text = ggplot2::element_blank(),
+    axis.title.x = ggplot2::element_blank(),
+    axis.title.y = ggplot2::element_blank(),
+    strip.text =  ggplot2::element_blank(),
+    strip.background = ggplot2::element_blank(),
+    plot.margin = ggplot2::margin(t = 0, r = 0, b = -0.5, l = 0, unit = "pt")
+    )
+
+ggplot2::ggsave(  plot = SV.dens.plot,
+  filename = "/datasets/work/ncmi-toa-rrbs/work/2.School_shark/PACBIO/1.SV_tile_plot.png",
+  device = "png",  width = 15,  height = 1.3, dpi = 300
+)
+```
+
+
+## SV density
+
+```{r}
+library(GenomicRanges)
+sv_data2 <- data.frame(
+  chr = df$CHROM,
+  start = df$POS,
+  end = df$POS + SV.df$len,
+  variant_type = SV.df$type
+)
+sv_data2 <- sv_data2[sv_data2$chr %in% c(paste0("SUPER_",1:47), "SUPER_X"),]
+sv_data2$chr <- factor(sv_data2$chr, levels = c(paste0("SUPER_",1:47), "SUPER_X"))
+sv_data2 <- sv_data2[order(sv_data2$chr),]
+
+table(sv_data2$chr[sv_data2$variant_type == "INV"])
+table(sv_data2$chr[sv_data2$variant_type == "DUP"])
+
+SV.dens.plot <- ggplot2::ggplot(data = sv_data2,
+                                ggplot2::aes(
+                                  x = (start + end) / 2,
+                                  y = variant_type,
+                                  fill = variant_type,
+                                  width = end - start
+                                )) +
+  ggplot2::geom_tile() +
+  ggplot2::facet_grid( ~ chr,
+                       scales = "free_x",
+                       space = "free_x",
+                       switch = "both") +
+  ggplot2::scale_fill_manual(values = sv_colors) +
+  ggplot2::scale_x_continuous(expand = c(0, 0)) +
+  ggplot2::theme_bw() +
+  ggplot2::theme(
+    line = ggplot2::element_line(linewidth = 0.05),
+    rect = ggplot2::element_rect(linewidth = 0.05),
+    panel.spacing = grid::unit(0.75, "mm"),
+    legend.position = "none",
+    axis.text = ggplot2::element_blank(),
+    axis.title.x = ggplot2::element_blank(),
+    axis.title.y = ggplot2::element_blank(),
+    strip.text =  ggplot2::element_blank(),
+    strip.background = ggplot2::element_blank(),
+    plot.margin = ggplot2::margin(t = 0, r = 0, b = -0.5, l = 0, unit = "pt")
+    )
+
+ggplot2::ggsave(  plot = SV.dens.plot,
+  filename = "/datasets/work/ncmi-toa-rrbs/work/2.School_shark/PACBIO/1.SV_tile_plot_dens.png",
+  device = "png",  width = 15,  height = 1.3, dpi = 300
+)
+
+
+
+combo.plot1 <- gridExtra::grid.arrange(SV.dens.plot, chrom.plot, ncol = 1, heights = c(7,1) )
+ggplot2::ggsave(  plot = combo.plot1,
+  filename = "/datasets/work/ncmi-toa-rrbs/work/2.School_shark/PACBIO/1.SV_tile_plot_combo.png",
+  device = "png",  width = 15,  height = 1.3, dpi = 300
+)
+
+
+genome.info <- GenomeInfoDb::Seqinfo(seqnames = as.character(chrom_lengths$chr),
+                                     seqlengths = chrom_lengths$end, 
+                                     isCircular = rep(FALSE, length(chrom_lengths$chr)),
+                                     genome = "sGalGal3")
+
+sv.gr <- GenomicRanges::makeGRangesFromDataFrame(sv_data)
+
+
+snp.distr <- GenomicRanges::tileGenome(genome.info, tilewidth = 10000, cut.last.tile.in.chrom=T)
+snp.distr$nSVs = GenomicRanges::countOverlaps(snp.distr, sv.gr)
+snp.distr.df <- as.data.frame(snp.distr)
+summary(snp.distr.df$nSVs)
+
+snp.distr2 <- GenomicRanges::tileGenome(genome.info, tilewidth = 100000, cut.last.tile.in.chrom=T)
+snp.distr2$nSVs = GenomicRanges::countOverlaps(snp.distr2, sv.gr)
+snp.distr.df2 <- as.data.frame(snp.distr2)
+summary(snp.distr.df2$nSVs)
+
+# save(SV.df,SV.df2, sv_data,snp.distr.df, snp.distr.df2 file = "sGalGal_SV_from_pbSV.Rdata")
+load("sGalGal_SV_from_pbSV.Rdata")
+
+sv.plot <- ggplot2::ggplot(data = snp.distr.df2) +
+  ggplot2::geom_line(ggplot2::aes(
+    x = start,
+    y = nSVs,
+  ),linewidth = 0.05) +
+  ggplot2::ggtitle("") +
+  ggplot2::facet_grid(~seqnames, scales = "free_x", space = "free_x", switch = "both") +
+  ggplot2::scale_x_continuous(expand = c(0, 0)) +
+  ggplot2::theme_bw() +
+  ggplot2::theme(
+    line = ggplot2::element_line(linewidth = 0.05),
+    rect = ggplot2::element_rect(linewidth = 0.05),
+    panel.spacing = grid::unit(0.75, "mm"),
+    axis.text = ggplot2::element_blank(),
+    axis.title.x = ggplot2::element_blank(),
+    axis.title.y = ggplot2::element_blank(),
+    strip.text =  ggplot2::element_blank(),
+    strip.background = ggplot2::element_blank(),
+    plot.margin = ggplot2::margin(t = 0, r = 0, b = -0.5, l = 0, unit = "pt") 
+    )
+combo.plot <- gridExtra::grid.arrange(sv.plot,
+                                      # snp.plot, 
+                                      chrom.plot, ncol = 1, heights = c(7,1) )
+ggplot2::ggsave(  plot = combo.plot,
+  filename = "/datasets/work/ncmi-toa-rrbs/work/2.School_shark/PACBIO/4.sv_distr_plot_100000.png",
+  device = "png",  width = 15,  height = 1.3, dpi = 300
+)
+```
+
+
+
+
+
+# CpG sites in SGalGal3
+
+```{r}
+cpg.file <- "/datasets/work/ncmi-toa-rrbs/work/2.School_shark/PACBIO/OG706/CpG/OG706_CpG.combined.reference.mincov4.bed"
+SS.cpg <- readr::read_table(cpg.file, col_names = FALSE)
+cpg.short.colnames <- c("ref", "start", "end", "mod_prob", "hap", "cov", "est_mod_count", "est_unmod_count", "discr_mod_prob")
+colnames(SS.cpg) <- cpg.short.colnames
+
+# save(SS.cpg, file = "sGalGal_CpG_from_pbCpG.Rdata")
+load("sGalGal_CpG_from_pbCpG.Rdata")
+
+dim(SS.cpg)
+mean(SS.cpg$mod_prob, na.rm = TRUE) # 71.4119 %
+mean(SS.cpg$discr_mod_prob, na.rm = TRUE) #72.06378 %
+
+mean(SS.cpg$discr_mod_prob[SS.cpg$discr_mod_prob < 60], na.rm = TRUE) #27.9979 %
+
+
+cov.plot <- ggplot2::ggplot(SS.cpg, ggplot2::aes(x = cov)) + 
+  ggplot2::stat_density(ggplot2::aes(y = ggplot2::after_stat(count)), color = "black", fill = "grey", alpha = 0.3) +
+  ggplot2::scale_x_continuous(breaks = c(0,5,15,20,50,100,500,1000,5000,10000), trans = "log10", expand = c(0,0.1)) +
+  ggplot2::ylab("number of sites") +
+  ggplot2::xlab("Total coverage") +
+  ggplot2::theme_bw() +
+  ggplot2::theme(
+    axis.text = ggplot2::element_text(size = 20),
+    axis.title.x = ggplot2::element_text(size = 30),
+    axis.title.y = ggplot2::element_text(size = 30),
+    legend.text = ggplot2::element_text(size = 20)
+  )
+print(cov.plot)
+ggplot2::ggsave(plot = cov.plot, filename = "/datasets/work/ncmi-toa-rrbs/work/2.School_shark/PACBIO/Depth_of_coverage_plot_CpG_sites.png",
+                device = "png", width = 15, height = 15)
+
+
+meth.plot <- ggplot2::ggplot(SS.cpg, ggplot2::aes(x = mod_prob)) + 
+  ggplot2::geom_histogram(binwidth = 1) +
+  ggplot2::ylab("number of sites") +
+  ggplot2::xlab("Methylation probability") +
+  ggplot2::theme_bw() +
+  ggplot2::theme(
+    axis.text = ggplot2::element_text(size = 20),
+    axis.title.x = ggplot2::element_text(size = 30),
+    axis.title.y = ggplot2::element_text(size = 30),
+    legend.text = ggplot2::element_text(size = 20)
+  )
+print(meth.plot)
+ggplot2::ggsave(plot = meth.plot, filename = "/datasets/work/ncmi-toa-rrbs/work/2.School_shark/PACBIO/Methylation_levels_plot_CpG_sites.png", 
+                device = "png", width = 15, height = 15)
+
+
+
+
+SS.cpg.cov20 <- SS.cpg[SS.cpg$cov >= 20 & SS.cpg$cov <= 500,]
+meth.plot2 <- ggplot2::ggplot(SS.cpg.cov20, ggplot2::aes(x = mod_prob)) + 
+  ggplot2::geom_histogram(binwidth = 1) +
+  ggplot2::ylab("number of sites") +
+  ggplot2::xlab("Methylation probability") +
+  ggplot2::theme_bw() +
+  ggplot2::theme(
+    axis.text = ggplot2::element_text(size = 20),
+    axis.title.x = ggplot2::element_text(size = 30),
+    axis.title.y = ggplot2::element_text(size = 30),
+    legend.text = ggplot2::element_text(size = 20)
+  )
+ggplot2::ggsave(plot = meth.plot2, filename = "/datasets/work/ncmi-toa-rrbs/work/2.School_shark/PACBIO/Methylation_levels_plot_CpG_sites_cov20_500.png", 
+                device = "png", width = 15, height = 15)
+
+
+
+CHR <- c(paste0("SUPER_",1:47), "SUPER_X")
+ALL.tab <- as.data.frame(table(SS.cpg$ref))
+ALL.tab <- ALL.tab[order(ALL.tab$Freq, decreasing = TRUE),]
+ALL.tab.sub <- ALL.tab[ALL.tab$Var1 %in% CHR,]
+
+ALL.tab.sub$Var1 <- factor(ALL.tab.sub$Var1, levels = ALL.tab.sub$Var1)
+
+distr.plot <- ggplot2::ggplot(ALL.tab.sub, ggplot2::aes(x = Var1, y = Freq)) +
+  ggplot2::geom_point() +
+  ggplot2::theme_bw() +
+  ggplot2::theme(
+    axis.text = ggplot2::element_text(size = 5, angle = 90),
+    axis.title.x = ggplot2::element_text(size = 15),
+    axis.title.y = ggplot2::element_text(size = 15),
+    legend.text = ggplot2::element_text(size = 20)
+  ) 
+ggplot2::ggsave(plot = distr.plot, filename = "/datasets/work/ncmi-toa-rrbs/work/2.School_shark/PACBIO/cpg_sites_per_chromosome.png", 
+                device = "png", width = 15, height = 15)
+
+
+
+library(tidyverse)
+CHR <- c(paste0("SUPER_",1:47), "SUPER_X")
+data2 <- SS.cpg[SS.cpg$ref %in% CHR,]
+
+data2b <- data2 %>%
+  dplyr::arrange(desc(start)) %>%
+  dplyr::filter(cov > 20) %>%
+  dplyr::group_by(ref) %>% 
+  dplyr::mutate(
+                discr_mod_prob10000 = zoo::rollmean(discr_mod_prob, k = 10000, fill = NA),
+                cov10000 = zoo::rollmean(cov, k = 10000, fill = NA)
+                # discr_mod_prob100000 = zoo::rollmean(discr_mod_prob, k = 100000, fill = NA),
+                # cov100000 = zoo::rollmean(cov, k = 100000, fill = NA)
+                ) %>%
+  dplyr::ungroup()
+
+data2b$ref <- factor(data2b$ref, levels = CHR)
+
+
+meth.plot <- ggplot2::ggplot(data = data2b) +
+  ggplot2::geom_line(ggplot2::aes(
+    x = start,
+    y = discr_mod_prob10000,
+  )) +
+  ggplot2::ylab("Methylation (%)") +
+  ggplot2::ylim(c(0, 100)) +
+  ggplot2::ggtitle("Methylation by rolling means of 10,000 bp") +
+  ggplot2::facet_grid(~ref, scales = "free_x", space = "free_x") +
+  ggplot2::theme_bw() +
+  ggplot2::theme(
+    axis.text = ggplot2::element_text(size = 5, angle = 90),
+    axis.title.x = ggplot2::element_blank(),
+    axis.title.y = ggplot2::element_text(size = 15)
+    ) 
+
+ggplot2::ggsave(  plot = meth.plot,
+  filename = "/datasets/work/ncmi-toa-rrbs/work/2.School_shark/PACBIO/cpg_means_chr/Methylation_rolling_means_100000_3.png",
+  device = "png",  width = 45,  height = 15
+)
+
+
+
+
+
+for (i in 1:length(CHR)) {
+  chrom <- CHR[i]
+  data3 <- data2b[data2b$ref %in% chrom, ]
+  meth.plot <- ggplot2::ggplot(data = data3) +
+    ggplot2::geom_point(ggplot2::aes(
+      x = start,
+      y = mod_prob
+    ), colour = "grey",size = 1, alpha = 0.3) +
+    ggplot2::geom_line(aes(x = start, y = discr_mod_prob10000, linewidth = cov10000)) +
+    ggplot2::ylab("Methylation (%)") +
+    ggplot2::ylim(c(0,100)) +
+    ggplot2::ggtitle(paste0("Methylation_10,000_",chrom)) +
+    ggplot2::theme_bw() +
+    ggplot2::theme(
+      axis.text = ggplot2::element_text(size = 5, angle = 90),
+      axis.title.x = ggplot2::element_blank(),
+      axis.title.y = ggplot2::element_text(size = 15)
+    ) 
+  ggplot2::ggsave(
+    plot = meth.plot,
+    filename = paste0(
+      "/datasets/work/ncmi-toa-rrbs/work/2.School_shark/PACBIO/cpg_means_chr/TEST10000_Methylation_DMS_", 
+      chrom, ".png"),
+    device = "png",
+    width = 45,
+    height = 15
+  )
+}
+
+
+for (i in 1:length(CHR)) {
+  chrom <- CHR[i]
+  data3 <- data2b[data2b$ref %in% chrom, ]
+  meth.plot <- ggplot2::ggplot(data = data3) +
+    ggplot2::geom_point(ggplot2::aes(
+      x = start,
+      y = mod_prob
+    ), colour = "grey", size = 1, alpha = 0.4) +
+    ggplot2::geom_line(aes(x = start, y = discr_mod_prob100000,linewidth = cov100000)) + 
+    ggplot2::ylab("Methylation (%)") +
+    ggplot2::ylim(c(0,100)) +
+    ggplot2::ggtitle(paste0("Methylation_100,000_",chrom)) +
+    ggplot2::theme_bw() +
+    ggplot2::theme(
+      axis.text = ggplot2::element_text(size = 5, angle = 90),
+      axis.title.x = ggplot2::element_blank(),
+      axis.title.y = ggplot2::element_text(size = 15)
+    ) 
+  ggplot2::ggsave(
+    plot = meth.plot,
+    filename = paste0(
+      "/datasets/work/ncmi-toa-rrbs/work/2.School_shark/PACBIO/cpg_means_chr/TEST100000_Methylation_DMS_",
+      chrom, ".png"),
+    device = "png",
+    width = 45,
+    height = 15
+  )
+}
+
+```
+
+
+## Final
+
+```{r}
+karyotype <- '/datasets/work/ncmi-toa-rrbs/work/2.School_shark/pangenome/cactus/School_shark_pan/OG706_curated.karyotype.txt'
+karyotype <- "C:/Users/dev093/OneDrive - CSIRO/Postdoc/2.School Shark/5.Manuscript/Genome_descriptor/code/annotation/Annotation_results/complete.genomic.gtf/OG706_curated.karyotype.txt"
+karyo <- read.table(karyotype, sep = "\t", header = FALSE, stringsAsFactors = FALSE)
+colnames(karyo) <- c("chr", "dummy", "label", "accession", "start", "end", "color")
+chr.select <- c(paste0("SUPER_", 1:47), "SUPER_X")
+karyo.sub <- karyo[karyo$accession %in% chr.select,]
+chrom_lengths <- karyo.sub[, c("accession", "start","end")]
+colnames(chrom_lengths) <- c("chr", "start", "end")
+chrom_lengths$chr <- factor(chrom_lengths$chr, levels = chr.select)
+chrom_lengths <- chrom_lengths[order(chrom_lengths$chr),]
+
+chr_colors <- rainbow(length(unique(chrom_lengths$chr)))
+names(chr_colors) <- as.character(unique(chrom_lengths$chr))
+
+chrom.plot <- ggplot2::ggplot(chrom_lengths, 
+                              ggplot2::aes(xmin = start, xmax = end, 
+                                           ymin = 0, ymax = 1)) +
+        ggplot2::geom_rect(ggplot2::aes(fill = chr), color = "black") +
+        ggplot2::labs(x = "Chromosome Position (bp)", y = "Chromosome") +
+        ggplot2::facet_grid(~chr, scales = "free_x", space = "free_x", switch = "both") +
+        ggplot2::scale_fill_manual(values = chr_colors) +
+        ggplot2::scale_x_continuous(expand = c(0, 0)) + 
+        ggplot2::scale_y_continuous(expand = c(0, 0)) + 
+        ggplot2::theme_void() + 
+    ggplot2::theme(
+    legend.position = "none",
+    panel.spacing = grid::unit(0.75, "mm"),
+    axis.text = ggplot2::element_blank(),
+    axis.title.x = ggplot2::element_blank(),
+    axis.title.y = ggplot2::element_blank(),
+    strip.text =  ggplot2::element_blank(),
+    plot.margin = ggplot2::margin(t = -0.5,r = 0,b = 0,l = 0, unit = "pt")
+    )
+
+meth.plot <- ggplot2::ggplot(data = data2b) +
+  ggplot2::geom_line(ggplot2::aes(
+    x = start,
+    y = discr_mod_prob10000,
+  ),linewidth = 0.05) +
+  ggplot2::ylim(c(0, 100)) +
+  ggplot2::ggtitle("") +
+  ggplot2::facet_grid(~ref, scales = "free_x", space = "free_x", switch = "both") +
+  ggplot2::scale_x_continuous(expand = c(0, 0)) +
+  ggplot2::theme_bw() +
+  ggplot2::theme(
+    line = ggplot2::element_line(linewidth = 0.05),
+    rect = ggplot2::element_rect(linewidth = 0.05),
+    panel.spacing = grid::unit(0.75, "mm"),
+    axis.text = ggplot2::element_blank(),
+    axis.title.x = ggplot2::element_blank(),
+    axis.title.y = ggplot2::element_blank(),
+    strip.text =  ggplot2::element_blank(),
+    strip.background = ggplot2::element_blank(),
+    plot.margin = ggplot2::margin(t = 0, r = 0, b = -0.5, l = 0, unit = "pt") 
+    )
+# ggplot2::ggsave(  plot = meth.plot,
+#   filename = "/datasets/work/ncmi-toa-rrbs/work/2.School_shark/PACBIO/0.Methylation_rolling_means_100000_FINAL3.png",
+#   device = "png",  width = 15,  height = 1.3, dpi = 1200
+# )
+# ggplot2::ggsave(  plot = meth.plot,
+#   filename = "/datasets/work/ncmi-toa-rrbs/work/2.School_shark/PACBIO/0.Methylation_rolling_means_100000_FINAL5.png",
+#   device = "png",  width = 15,  height = 1.3, dpi = 300
+# )
+
+
+combo.plot <- gridExtra::grid.arrange(meth.plot, chrom.plot, ncol = 1, heights = c(7,1) )
+ggplot2::ggsave(  plot = combo.plot,
+  filename = "/datasets/work/ncmi-toa-rrbs/work/2.School_shark/PACBIO/0.Methylation_rolling_means_100000_FINAL6.png",
+  device = "png",  width = 15,  height = 1.3, dpi = 300
+)
+```
+
+## Low methylation density
+
+```{r}
+load("sGalGal_CpG_from_pbCpG.Rdata")
+cpg.distr.df <- SS.cpg[SS.cpg$discr_mod_prob < 60,]
+
+cpg.plot <- ggplot2::ggplot(data = cpg.distr.df) +
+  ggplot2::geom_point(ggplot2::aes(
+    x = start,
+    y = ref)) +
+  ggplot2::ggtitle("") +
+  ggplot2::theme_bw() +
+  ggplot2::theme(
+    rect = ggplot2::element_rect(linewidth = 0.05),
+    panel.spacing = grid::unit(0.75, "mm")
+    )
+ggplot2::ggsave(  plot = snp.plot,
+  filename = "/datasets/work/ncmi-toa-rrbs/work/2.School_shark/PACBIO/0.cpg_distr_plot_lowmethylation.png",
+  device = "png",  width = 15,  height = 15, dpi = 300
+)
+
+
+cpg.dens.plot <- ggplot2::ggplot(data = cpg.distr.df) +
+  ggplot2::geom_density(ggplot2::aes(
+    x = start,y = after_stat(density * n)
+    ), linewidth = 0.1) +
+  ggplot2::ggtitle("") +
+  ggplot2::facet_grid(~ref, scales = "free_x", space = "free_x", switch = "both") +
+  ggplot2::scale_x_continuous(expand = c(0, 0)) +
+  ggplot2::theme_bw() +
+  ggplot2::theme(
+    line = ggplot2::element_line(linewidth = 0.05),
+    rect = ggplot2::element_rect(linewidth = 0.05),
+    panel.spacing = grid::unit(0.75, "mm"),
+    axis.text = ggplot2::element_blank(),
+    axis.title.x = ggplot2::element_blank(),
+    axis.title.y = ggplot2::element_blank(),
+    axis.ticks.y = ggplot2::element_blank(),
+    strip.text =  ggplot2::element_blank(),
+    strip.background = ggplot2::element_blank(),
+    legend.position = "none",
+    plot.margin = ggplot2::margin(t = 0, r = 0, b = -0.5, l = 0, unit = "pt")
+    )
+combo.plot <- gridExtra::grid.arrange(cpg.dens.plot, chrom.plot, ncol = 1, heights = c(7,1) )
+ggplot2::ggsave(  plot = combo.plot,
+  filename = "/datasets/work/ncmi-toa-rrbs/work/2.School_shark/PACBIO/0.cpg_distr_plot_lowmethylation2.png",
+  device = "png",  width = 15,  height = 1.3, dpi = 300
+)
+```
+
+
+# Gene density
+
+```{r}
+library(GenomicRanges)
+gtf.file <- "/datasets/work/ncmi-toa-rrbs/work/2.School_shark/Annotation/Annotation_results/egapx_results/complete.genomic.gtf"
+gtf.file <- "C:/Users/dev093/OneDrive - CSIRO/Postdoc/2.School Shark/5.Manuscript/Genome_descriptor/code/annotation/Annotation_results/complete.genomic.gtf/complete.genomic.gtf"
+
+gff3 <- rtracklayer::import.gff(gtf.file) #651,680 annotations
+gff3.gene <- gff3[gff3$type == "gene",] #25,471 genes
+gff3[gff3$type == "exon",] #280,344 exons
+gff3[gff3$type == "CDS",] #263,143 CDS
+gff3[gff3$type == "transcript",] #30,019 transcripts
+
+chr.gr <- GenomicRanges::GRanges(
+          seqnames = as.character(chrom_lengths$chr),
+          ranges = IRanges::IRanges(start = chrom_lengths$start, end = chrom_lengths$end),
+          strand = "+")
+GenomeInfoDb::seqlevels(chr.gr, pruning.mode="coarse") <- GenomeInfoDb::seqlevels(gff3.gene)
+gff3.gene.sub <- IRanges::subsetByOverlaps(gff3.gene, chr.gr)
+GenomeInfoDb::seqlevels(gff3.gene.sub, pruning.mode="coarse") <- c(paste0("SUPER_", 1:47), "SUPER_X")
+
+
+genome.info <- GenomeInfoDb::Seqinfo(seqnames = as.character(chrom_lengths$chr),
+                                     seqlengths = chrom_lengths$end, 
+                                     isCircular = rep(FALSE, length(chrom_lengths$chr)),
+                                     genome = "sGalGal3")
+gene.distr <- GenomicRanges::tileGenome(genome.info, tilewidth = 100000, cut.last.tile.in.chrom=T)
+gene.distr <- GenomicRanges::tileGenome(genome.info, tilewidth = 1000000, cut.last.tile.in.chrom=T)
+
+gene.distr$nGenes = GenomicRanges::countOverlaps(gene.distr, gff3.gene.sub)
+
+summary(gene.distr$nGenes)
+## 100,000bp
+#   Min. 1st Qu.  Median    Mean 3rd Qu.    Max. 
+# 0.0000  0.0000  0.0000  0.5169  1.0000 13.0000
+
+## 1,000,000bp
+#  Min. 1st Qu.  Median    Mean 3rd Qu.    Max. 
+# 0.000   1.000   3.000   3.153   5.000  21.000 
+
+gene.distr.df <- as.data.frame(gene.distr)
+
+gene.plot <- ggplot2::ggplot(data = gene.distr.df) +
+  ggplot2::geom_line(ggplot2::aes(
+    x = start,
+    y = nGenes
+  ),linewidth = 0.05) +
+  ggplot2::ggtitle("") +
+  ggplot2::facet_grid(~seqnames, scales = "free_x", space = "free_x", switch = "both") +
+  ggplot2::scale_x_continuous(expand = c(0, 0)) +
+  ggplot2::theme_bw() +
+  ggplot2::theme(
+    line = ggplot2::element_line(linewidth = 0.05),
+    rect = ggplot2::element_rect(linewidth = 0.05),
+    panel.spacing = grid::unit(0.75, "mm"),
+    axis.text = ggplot2::element_blank(),
+    axis.title.x = ggplot2::element_blank(),
+    axis.title.y = ggplot2::element_blank(),
+    strip.text =  ggplot2::element_blank(),
+    strip.background = ggplot2::element_blank(),
+    plot.margin = ggplot2::margin(t = 0, r = 0, b = -0.5, l = 0, unit = "pt") 
+    )
+combo.plot <- gridExtra::grid.arrange(gene.plot, chrom.plot, ncol = 1, heights = c(7,1) )
+ggplot2::ggsave(  plot = combo.plot,
+  filename = "/datasets/work/ncmi-toa-rrbs/work/2.School_shark/PACBIO/5.gene_distr_plot.png",
+  device = "png",  width = 15,  height = 1.3, dpi = 300
+)
+```
+
+
+
+# CG ratio
+
+```{r}
+karyotype <- '/datasets/work/ncmi-toa-rrbs/work/2.School_shark/pangenome/cactus/School_shark_pan/OG706_curated.karyotype.txt'
+karyo <- read.table(karyotype, sep = "\t", header = FALSE, stringsAsFactors = FALSE)
+colnames(karyo) <- c("chr", "dummy", "label", "accession", "start", "end", "color")
+chr.select <- c(paste0("SUPER_", 1:47), "SUPER_X")
+karyo.sub <- karyo[karyo$accession %in% chr.select,]
+chrom_lengths <- karyo.sub[, c("accession", "start","end")]
+colnames(chrom_lengths) <- c("chr", "start", "end")
+chrom_lengths$chr <- factor(chrom_lengths$chr, levels = chr.select)
+chrom_lengths <- chrom_lengths[order(chrom_lengths$chr),]
+
+chr_colors <- rainbow(length(unique(chrom_lengths$chr)))
+names(chr_colors) <- as.character(unique(chrom_lengths$chr))
+
+chrom.plot <- ggplot2::ggplot(chrom_lengths, 
+                              ggplot2::aes(xmin = start, xmax = end, 
+                                           ymin = 0, ymax = 1)) +
+        ggplot2::geom_rect(ggplot2::aes(fill = chr), color = "black") +
+        ggplot2::labs(x = "Chromosome Position (bp)", y = "Chromosome") +
+        ggplot2::facet_grid(~chr, scales = "free_x", space = "free_x", switch = "both") +
+        ggplot2::scale_fill_manual(values = chr_colors) +
+        ggplot2::scale_x_continuous(expand = c(0, 0)) + 
+        ggplot2::scale_y_continuous(expand = c(0, 0)) + 
+        ggplot2::theme_void() + 
+    ggplot2::theme(
+    legend.position = "none",
+    panel.spacing = grid::unit(0.75, "mm"),
+    axis.text = ggplot2::element_blank(),
+    axis.title.x = ggplot2::element_blank(),
+    axis.title.y = ggplot2::element_blank(),
+    strip.text =  ggplot2::element_blank(),
+    # plot.margin=unit(c(1,1,1,-0.5), "cm")
+    plot.margin = ggplot2::margin(t = -0.5,r = 0,b = 0,l = 0, unit = "pt")
+    )
+
+
+CG.OG706 <- readr::read_tsv("OG706.hap1_10000bps.gc")
+CG.OG706$individual <- "OG706"
+CG.OG906 <- readr::read_tsv("OG906.hap1_10000bps.gc")
+CG.OG906$individual <- "OG906"
+
+CG.data <- rbind(CG.OG706,CG.OG906)
+chr.select <- c(paste0("SUPER_", 1:47), "SUPER_X")
+CG.data <- CG.data[CG.data$chr %in% chr.select,]
+CG.data$chr <- factor(CG.data$chr, levels = chr.select)
+
+CG.plot <- ggplot2::ggplot(data = CG.data) +
+  ggplot2::geom_line(ggplot2::aes(
+    x = start,
+    y = value1,
+    # colour = individual
+  ),linewidth = 0.05) +
+  ggplot2::ylim(c(0, 1)) +
+  ggplot2::ggtitle("") +
+  ggplot2::facet_grid(~chr, scales = "free_x", space = "free_x", switch = "both") +
+  ggplot2::scale_x_continuous(expand = c(0, 0)) +
+  ggplot2::theme_bw() +
+  ggplot2::theme(
+    line = ggplot2::element_line(linewidth = 0.05),
+    rect = ggplot2::element_rect(linewidth = 0.05),
+    panel.spacing = grid::unit(0.75, "mm"),
+    axis.text = ggplot2::element_blank(),
+    axis.title.x = ggplot2::element_blank(),
+    axis.title.y = ggplot2::element_blank(),
+    strip.text =  ggplot2::element_blank(),
+    strip.background = ggplot2::element_blank(),
+    plot.margin = ggplot2::margin(t = 0, r = 0, b = -0.5, l = 0, unit = "pt") 
+    )
+ggplot2::ggsave(  plot = CG.plot,
+  filename = "/datasets/work/ncmi-toa-rrbs/work/2.School_shark/PACBIO/1.CGratio_rolling_means_100000.png",
+  device = "png",  width = 15,  height = 1.3, dpi = 1200
+)
+# ggplot2::ggsave(  plot = meth.plot,
+#   filename = "/datasets/work/ncmi-toa-rrbs/work/2.School_shark/PACBIO/0.Methylation_rolling_means_100000_FINAL5.png",
+#   device = "png",  width = 15,  height = 1.3, dpi = 300
+# )
+
+combo.plot <- gridExtra::grid.arrange(CG.plot, chrom.plot, ncol = 1, heights = c(7,1) )
+ggplot2::ggsave(  plot = combo.plot,
+  filename = "/datasets/work/ncmi-toa-rrbs/work/2.School_shark/PACBIO/1.CGratio_rolling_means_100000_FINAL.png",
+  device = "png",  width = 15,  height = 1.3, dpi = 300
+)
+```
+
